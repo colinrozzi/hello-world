@@ -40,9 +40,21 @@ jobs:
           path: target
           key: ${{ runner.os }}-target-${{ hashFiles('**/Cargo.lock') }}
           
+      - name: Cache cargo-component
+        uses: actions/cache@v3
+        with:
+          path: ~/.cargo/bin/cargo-component
+          key: ${{ runner.os }}-cargo-component
+          
+      - name: Install cargo-component
+        run: |
+          if ! command -v cargo-component &> /dev/null; then
+            cargo install cargo-component
+          fi
+          
       - name: Build WASM component
         run: |
-          cargo build --release --target wasm32-unknown-unknown
+          cargo component build --release --target wasm32-unknown-unknown
           
       - name: Extract version from tag
         id: version
