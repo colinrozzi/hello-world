@@ -1,0 +1,134 @@
+name: Auto-Release Actor
+
+on:
+  push:
+    tags:
+      - 'v*'  # Triggers on version tags like v0.1.0, v1.2.3, etc.
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Auto-detect actor name
+        id: actor-info
+        run: |
+          # Try to get actor name from Cargo.toml
+          if [ -f "Cargo.toml" ]; then
+            ACTOR_NAME=$(grep '^name = ' Cargo.toml | head -1 | sed 's/name = "\(.*\)"/\1/')
+          fi
+          
+          # Fallback to repository name if not found
+          if [ -z "$ACTOR_NAME" ]; then
+            ACTOR_NAME=$(basename "${{ github.repository }}")
+          fi
+          
+          echo "ACTOR_NAME=$ACTOR_NAME" >> $GITHUB_OUTPUT
+          echo "Detected actor name: $ACTOR_NAME"
+          
+      - name: Setup Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          target: wasm32-unknown-unknown
+          override: true
+          
+      - name: Cache cargo registry
+        uses: actions/cache@v3
+        with:
+          path: ~/.cargo/registry
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+          
+      - name: Cache cargo index
+        uses: actions/cache@v3
+        with:
+          path: ~/.cargo/git
+          key: ${{ runner.os }}-cargo-index-${{ hashFiles('**/Cargo.lock') }}
+          
+      - name: Cache target directory
+        uses: actions/cache@v3
+        with:
+          path: target
+          key: ${{ runner.os }}-target-${{ hashFiles('**/Cargo.lock') }}
+          
+      - name: Cache cargo-component
+        uses: actions/cache@v3
+        with:
+          path: ~/.cargo/bin/cargo-component
+          key: ${{ runner.os }}-cargo-component
+          
+      - name: Install cargo-component
+        run: |
+          if ! command -v cargo-component &> /dev/null; then
+            cargo install cargo-component
+          fi
+          
+      - name: Build WASM component
+        run: |
+          cargo component build --release --target wasm32-unknown-unknown
+          
+      - name: Extract version from tag
+        id: version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+        
+      - name: Auto-detect binary name
+        id: binary-name
+        run: |
+          # Try to find the WASM file in target directory
+          WASM_FILE=$(find target/wasm32-unknown-unknown/release/ -name "*.wasm" -not -path "*/deps/*" | head -1)
+          if [ -z "$WASM_FILE" ]; then
+            echo "No WASM file found! Using actor name as fallback."
+            BINARY_NAME="${{ steps.actor-info.outputs.ACTOR_NAME }}"
+          else
+            BINARY_NAME=$(basename "$WASM_FILE" .wasm)
+          fi
+          echo "BINARY_NAME=$BINARY_NAME" >> $GITHUB_OUTPUT
+          echo "Detected binary name: $BINARY_NAME"
+        
+      - name: Prepare release assets
+        run: |
+          # Copy and rename files for release
+          cp target/wasm32-unknown-unknown/release/${{ steps.binary-name.outputs.BINARY_NAME }}.wasm ${{ steps.actor-info.outputs.ACTOR_NAME }}-component.wasm
+          
+          # Create updated manifest with GitHub URLs
+          cp manifest.toml ${{ steps.actor-info.outputs.ACTOR_NAME }}-manifest.toml
+          
+          # Update the manifest to use GitHub release URLs instead of local paths
+          sed -i "s|component = \".*\"|component = \"https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.VERSION }}/${{ steps.actor-info.outputs.ACTOR_NAME }}-component.wasm\"|" ${{ steps.actor-info.outputs.ACTOR_NAME }}-manifest.toml
+          sed -i "s|version = \".*\"|version = \"${{ steps.version.outputs.VERSION }}\"|" ${{ steps.actor-info.outputs.ACTOR_NAME }}-manifest.toml
+          
+      - name: Verify release assets
+        run: |
+          echo "Release assets prepared:"
+          ls -la ${{ steps.actor-info.outputs.ACTOR_NAME }}-*
+          echo ""
+          echo "Updated manifest contents:"
+          cat ${{ steps.actor-info.outputs.ACTOR_NAME }}-manifest.toml
+          
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            ${{ steps.actor-info.outputs.ACTOR_NAME }}-component.wasm
+            ${{ steps.actor-info.outputs.ACTOR_NAME }}-manifest.toml
+          body: |
+            ## ${{ steps.actor-info.outputs.ACTOR_NAME }} Actor Release ${{ steps.version.outputs.VERSION }}
+            
+            This release contains:
+            - `${{ steps.actor-info.outputs.ACTOR_NAME }}-component.wasm` - The WebAssembly component
+            - `${{ steps.actor-info.outputs.ACTOR_NAME }}-manifest.toml` - The actor manifest with updated URLs
+            
+            ### Usage
+            To use this actor, reference the manifest URL:
+            ```
+            https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.VERSION }}/${{ steps.actor-info.outputs.ACTOR_NAME }}-manifest.toml
+            ```
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
