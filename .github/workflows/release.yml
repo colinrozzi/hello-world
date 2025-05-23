@@ -57,7 +57,7 @@ jobs:
           cp manifest.toml hello-world-manifest.toml
           
           # Update the manifest to use GitHub release URLs instead of local paths
-          sed -i "s|component_path = \".*\"|component_url = \"https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.VERSION }}/hello-world-component.wasm\"|" hello-world-manifest.toml
+          sed -i "s|component = \".*\"|component = \"https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.VERSION }}/hello-world-component.wasm\"|" hello-world-manifest.toml
           sed -i "s|version = \".*\"|version = \"${{ steps.version.outputs.VERSION }}\"|" hello-world-manifest.toml
           
       - name: Verify release assets
