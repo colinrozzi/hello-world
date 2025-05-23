@@ -1,0 +1,11 @@
+name = "hello-world"
+version = "0.1.0"
+# This will be updated by GitHub Actions to point to the release URL
+component_url = "https://github.com/OWNER/REPO/releases/download/VERSION/hello-world-component.wasm"
+description = "A basic Theater actor"
+save_chain = true
+
+[[handlers]]
+type = "runtime"
+
+[handlers.config]

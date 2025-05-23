@@ -1,44 +1,41 @@
-# hello-world
+# Hello World Actor
 
-A basic Theater actor created from the template.
+A simple Theater actor for testing and demonstration purposes.
 
-## Building
+## Development
 
-To build the actor:
-
+Build the actor locally:
 ```bash
-theater build
+cargo build --release --target wasm32-unknown-unknown
 ```
 
-## Running
+## Releasing
 
-To run the actor with Theater:
+This actor uses automated releases via GitHub Actions.
 
-```bash
-theater start manifest.toml
+### Creating a Release
+
+1. Make your changes and commit them
+2. Tag a new version:
+   ```bash
+   git tag v0.1.0
+   git push origin v0.1.0
+   ```
+3. GitHub Actions will automatically:
+   - Build the WASM component
+   - Create a GitHub release
+   - Upload the component and updated manifest
+
+### Using a Released Actor
+
+Reference the actor by its manifest URL:
+```
+https://github.com/OWNER/REPO/releases/download/v0.1.0/hello-world-manifest.toml
 ```
 
-## Features
+The manifest will contain URLs pointing to the release assets.
 
-This basic actor supports:
+## Files Generated in Release
 
-- Storing and retrieving state
-- Handling simple messages
-- Incrementing a counter
-- Storing text messages
-
-## API
-
-You can interact with this actor using the following commands:
-
-- `count` - Get the current count
-- `messages` - Get all stored messages
-- `increment` - Increment the counter
-- Any other text - Store as a message
-
-## Example
-
-```bash
-# Send a request to get the current count
-theater message hello-world count
-```
+- `hello-world-component.wasm` - The WebAssembly component
+- `hello-world-manifest.toml` - Manifest with GitHub release URLs

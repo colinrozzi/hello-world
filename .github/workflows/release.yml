@@ -1,0 +1,90 @@
+name: Release Hello World Actor
+
+on:
+  push:
+    tags:
+      - 'v*'  # Triggers on version tags like v0.1.0, v1.2.3, etc.
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          target: wasm32-unknown-unknown
+          override: true
+          
+      - name: Cache cargo registry
+        uses: actions/cache@v3
+        with:
+          path: ~/.cargo/registry
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+          
+      - name: Cache cargo index
+        uses: actions/cache@v3
+        with:
+          path: ~/.cargo/git
+          key: ${{ runner.os }}-cargo-index-${{ hashFiles('**/Cargo.lock') }}
+          
+      - name: Cache target directory
+        uses: actions/cache@v3
+        with:
+          path: target
+          key: ${{ runner.os }}-target-${{ hashFiles('**/Cargo.lock') }}
+          
+      - name: Build WASM component
+        run: |
+          cargo build --release --target wasm32-unknown-unknown
+          
+      - name: Extract version from tag
+        id: version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+        
+      - name: Prepare release assets
+        run: |
+          # Copy and rename files for release
+          cp target/wasm32-unknown-unknown/release/hello_world.wasm hello-world-component.wasm
+          
+          # Create updated manifest with GitHub URLs
+          cp manifest.toml hello-world-manifest.toml
+          
+          # Update the manifest to use GitHub release URLs instead of local paths
+          sed -i "s|component_path = \".*\"|component_url = \"https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.VERSION }}/hello-world-component.wasm\"|" hello-world-manifest.toml
+          sed -i "s|version = \".*\"|version = \"${{ steps.version.outputs.VERSION }}\"|" hello-world-manifest.toml
+          
+      - name: Verify release assets
+        run: |
+          echo "Release assets prepared:"
+          ls -la hello-world-*
+          echo ""
+          echo "Updated manifest contents:"
+          cat hello-world-manifest.toml
+          
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            hello-world-component.wasm
+            hello-world-manifest.toml
+          body: |
+            ## Hello World Actor Release ${{ steps.version.outputs.VERSION }}
+            
+            This release contains:
+            - `hello-world-component.wasm` - The WebAssembly component
+            - `hello-world-manifest.toml` - The actor manifest with updated URLs
+            
+            ### Usage
+            To use this actor, reference the manifest URL:
+            ```
+            https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.VERSION }}/hello-world-manifest.toml
+            ```
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
