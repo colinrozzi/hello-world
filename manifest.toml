@@ -1,0 +1,10 @@
+name = "hello-world"
+version = "0.1.0"
+component_path = "/Users/colinrozzi/work/actor-registry/hello-world/./target/wasm32-unknown-unknown/release/hello_world.wasm"
+description = "A basic Theater actor"
+save_chain = true
+
+[[handlers]]
+type = "runtime"
+
+[handlers.config]
