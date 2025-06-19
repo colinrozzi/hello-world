@@ -1,7 +1,7 @@
 mod bindings;
 
-use crate::bindings::exports::ntwk::theater::actor::Guest;
-use crate::bindings::ntwk::theater::runtime::{log, shutdown};
+use crate::bindings::exports::theater::simple::actor::Guest;
+use crate::bindings::theater::simple::runtime::{log, shutdown};
 
 use serde::{Deserialize, Serialize};
 

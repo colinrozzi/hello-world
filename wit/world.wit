@@ -1,6 +1,6 @@
-package ntwk:theater;
+package colinrozzi:hello-world;
 
-world hello-world {
-    import runtime;
-    export actor;
+world default {
+    import theater:simple/runtime;
+    export theater:simple/actor;
 }
